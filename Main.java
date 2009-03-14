@@ -26,6 +26,8 @@ public class Main {
 				}
 			}
 		}).start();
+
+		Init.doInit(client);
 	}
 
 	private static void handleInput(Client client)
