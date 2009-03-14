@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
 
 public class Main {
 
@@ -17,10 +18,11 @@ public class Main {
 			}
 		}).start();
 
+		final BlockingQueue<String> source = client.addListener();
 		new Thread(new Runnable() {
 			public void run() {
 				try {
-					handleOutput(client);
+					handleOutput(source);
 				} catch (Exception e) {
 					throw new RuntimeException(e);
 				}
@@ -41,11 +43,11 @@ public class Main {
 		}
 	}
 
-	private static void handleOutput(Client client)
-		throws IOException
+	private static void handleOutput(BlockingQueue<String> source)
+		throws InterruptedException
 	{
 		while (true) {
-			System.out.println("Output: " + client.read());
+			System.out.println("Output: " + source.take());
 		}
 	}
 }
