@@ -54,9 +54,9 @@ public class DNA {
 			this.client.write("ma;");
 			break;
 		case QUIT:
+			this.client.write("quit;");
 			this.source = null;
 			this.client = null;
-			this.client.write("quit;");
 			return;
 		}
 
