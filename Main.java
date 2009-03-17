@@ -7,30 +7,12 @@ public class Main {
 	public static void main(String[] args)
 		throws IOException
 	{
-		final Client client = new Client("localhost", 20015);
-
-		new Thread(new Runnable() {
-			public void run() {
-				try {
-					handleInput(client);
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			}
-		}).start();
-
-		final BlockingQueue<String> source = client.addListener();
-		new Thread(new Runnable() {
-			public void run() {
-				try {
-					handleOutput(source);
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			}
-		}).start();
+		final Client client = new Client(args[0], Integer.parseInt(args[1]));
 
 		Init.doInit(client);
+
+		GameIO game_io = new GameIO(client);
+		game_io.execute();
 	}
 
 	private static void handleInput(Client client)
@@ -57,14 +39,6 @@ public class Main {
 					client.write(command);
 				}
 			}
-		}
-	}
-
-	private static void handleOutput(BlockingQueue<String> source)
-		throws InterruptedException
-	{
-		while (true) {
-			System.out.println("Output: " + source.take());
 		}
 	}
 }
