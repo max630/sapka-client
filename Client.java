@@ -12,7 +12,7 @@ import java.lang.ref.WeakReference;
 
 public class Client {
 	Socket client_socket;
-	ConcurrentHashMap<Integer, WeakReference<BlockingQueue<String>>> listeners;
+	ConcurrentHashMap<Integer, WeakReference<EventsQueue>> listeners;
 	AtomicInteger counter;
 
 	Client(String hostname, int port)
@@ -22,7 +22,7 @@ public class Client {
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		this.listeners = new ConcurrentHashMap<Integer, WeakReference<BlockingQueue<String>>>();
+		this.listeners = new ConcurrentHashMap<Integer, WeakReference<EventsQueue>>();
 		this.counter = new AtomicInteger(0);
 
 		final Client reader = this;
@@ -32,7 +32,7 @@ public class Client {
 					while(true) {
 						String data = reader.read();
 						for (Integer q_idx: reader.listeners.keySet()) {
-							BlockingQueue<String> q = reader.listeners.get(q_idx).get();
+							EventsQueue q = reader.listeners.get(q_idx).get();
 							if (q != null) {
 								q.add(data);
 							} else {
@@ -41,15 +41,59 @@ public class Client {
 						}
 					}
 				} catch (Exception e) {
+					for (Integer q_idx: reader.listeners.keySet()) {
+						EventsQueue q = reader.listeners.get(q_idx).get();
+						if (q != null) {
+							q.setFailure(e);
+							q.add(";"); // to wake this thread
+						}
+					}
 					throw new RuntimeException(e);
 				}
 			}
 		}).start();
 	}
 
-	public BlockingQueue<String> addListener() {
-		BlockingQueue<String> res = new LinkedBlockingQueue<String>();
-		this.listeners.put(new Integer(this.counter.addAndGet(1)), new WeakReference<BlockingQueue<String>>(res));
+	public interface Events {
+		public String take() throws InterruptedException;
+	}
+
+	private interface EventsQueue extends Events {
+		public void add(String data);
+		public void setFailure(Exception failure);
+	}
+
+	public Events addListener() {
+		EventsQueue res = new EventsQueue() {
+			final BlockingQueue<String> queue;
+			Exception client_failure;
+
+			{
+				queue = new LinkedBlockingQueue<String>();
+				client_failure = null;
+			}
+
+			public void add(String data) {
+				this.queue.add(data);
+			}
+
+			public String take()
+				throws InterruptedException
+			{
+				System.out.println("take(), client_failure is " + (client_failure != null ? "set" : "unset"));
+				String res = this.queue.take();
+				if (this.client_failure != null) {
+					throw new RuntimeException(this.client_failure);
+				}
+				return res;
+			}
+
+			public void setFailure(Exception failure) {
+				System.out.println("setFailure()");
+				this.client_failure = failure;
+			}
+		};
+		this.listeners.put(new Integer(this.counter.addAndGet(1)), new WeakReference<EventsQueue>(res));
 		return res;
 	}
 

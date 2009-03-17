@@ -18,7 +18,7 @@ public class GameIO {
 	}
 
 	public void execute() {
-		final BlockingQueue<String> src = this.client.addListener();
+		final Client.Events src = this.client.addListener();
 		Thread listener = new Thread(new Runnable() {
 			public void run() {
 				while (true) {
