@@ -80,7 +80,6 @@ public class Client {
 			public String take()
 				throws InterruptedException
 			{
-				System.out.println("take(), client_failure is " + (client_failure != null ? "set" : "unset"));
 				String res = this.queue.take();
 				if (this.client_failure != null) {
 					throw new RuntimeException(this.client_failure);
@@ -89,7 +88,6 @@ public class Client {
 			}
 
 			public void setFailure(Exception failure) {
-				System.out.println("setFailure()");
 				this.client_failure = failure;
 			}
 		};
