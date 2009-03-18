@@ -115,7 +115,7 @@ public class GameIO {
 	static Pattern sapka_info_pat;
 	static Pattern my_cmd_pat;
 	static Map<String, WalkSide> walk_side_by_string;
-	static Pattern changes_part;
+	static Pattern map_change_pat;
 
 	private synchronized void parseOutput(String output) {
 		Matcher matcher = head.matcher(output);
@@ -161,11 +161,33 @@ public class GameIO {
 				this.me = new Point(x, y);
 			}
 
-			if (this.me != null
-				&& (me.x / cell_size != last_visual_x
-					|| me.y / cell_size != last_visual_y))
+			Matcher mc = map_change_pat.matcher(matcher.group(11));
+			while (mc.find()) {
+				int x = Integer.parseInt(mc.group(3));
+				int y = this.map_height - Integer.parseInt(mc.group(4)) - 1;
+
+				char new_symbol;
+				if (mc.group(1).equals("-")) {
+					new_symbol = '.';
+				} else if (mc.group(1).equals("+")) {
+					new_symbol = mc.group(2).charAt(0);
+				} else {
+					System.out.println("Unknown mamchange: " + matcher.group(11));
+					continue;
+				}
+
+				System.out.println("Map change: '" + new_symbol + "' at " + x +  ", " + y);
+				String line = this.map.get(y);
+				this.map.set(y, line.substring(0, x) + new_symbol + line.substring(x + 1));
+				this.map_changed = true;
+			}
+
+			if ((this.me != null
+				 && (this.me.x / this.cell_size != last_visual_x
+				     || this.me.y / this.cell_size != last_visual_y))
+				|| this.map_changed)
 			{
-				print();
+				this.print();
 			}
 			treatWalk();
 		}
@@ -191,6 +213,7 @@ public class GameIO {
 			}
 			this.last_visual_x = visual_x;
 			this.last_visual_y = visual_y;
+			this.map_changed = false;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
@@ -250,6 +273,9 @@ public class GameIO {
 		sapka_info_pat =
 		 Pattern.compile("P([0-9]+) "
 		  + "(dead|([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)( i)?)(,|$)");
+
+		map_change_pat =
+		 Pattern.compile("([\\+-])([\\*wX#bvfrsuo\\?]) ([0-9]+) ([0-9]+)[ 0-9]*(,|$)");
 
 		my_cmd_pat = Pattern.compile("^("
 			+ "(p)" // 2
