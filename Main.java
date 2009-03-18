@@ -14,31 +14,4 @@ public class Main {
 		GameIO game_io = new GameIO(client);
 		game_io.execute();
 	}
-
-	private static void handleInput(Client client)
-		throws IOException
-	{
-		DNA dna = null;
-		byte buf[] = new byte[1024];
-		int read_cnt;
-		while ((read_cnt = System.in.read(buf)) > 0) {
-			StringTokenizer commands
-			 = new StringTokenizer(new String(buf, 0, read_cnt), ";", true);
-			
-			while (commands.countTokens() > 1) {
-				String command = commands.nextToken();
-				command += commands.nextToken();
-
-				if (dna != null && dna.handleCommand(command)) {
-					if (dna.closed()) {
-						dna = null;
-					}
-				} else if (command.equals("dna;")) {
-					dna = new DNA(client);
-				} else {
-					client.write(command);
-				}
-			}
-		}
-	}
 }
