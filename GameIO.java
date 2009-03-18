@@ -183,8 +183,8 @@ public class GameIO {
 			}
 
 			if ((this.me != null
-				 && (this.me.x / this.cell_size != last_visual_x
-				     || this.me.y / this.cell_size != last_visual_y))
+				 && (this.me.x != this.last_visual_x
+				     || this.me.y  != this.last_visual_y))
 				|| this.map_changed)
 			{
 				this.print();
@@ -198,15 +198,20 @@ public class GameIO {
 			int visual_x = -1;
 			int visual_y = -1;
 			if (this.me != null) {
-				visual_x = this.me.x / this.cell_size;
-				visual_y = this.me.y / this.cell_size;
+				visual_x = this.me.x;
+				visual_y = this.me.y;
 			}
-			for (int i = this.map.size() - 1; i >= 0; --i) {
-				String line = this.map.get(i);
-				if (visual_y == i) { // if visual_y == -1 this never happen
-					line = line.substring(0, visual_x) + "@" + line.substring(visual_x + 1);
+			for (int i = this.map.size() * this.cell_size - 1; i >= 0; --i) {
+				String line = this.map.get(i / this.cell_size);
+				StringBuffer sb = new StringBuffer(line.length() * this.cell_size);
+				for (int j = 0; j < line.length() * this.cell_size; ++j) {
+					if (visual_y == i && visual_x == j ) { // if visual_y == -1 this never happen
+						sb.append('@');
+					} else {
+						sb.append(line.charAt(j / this.cell_size));
+					}
 				}
-				System.out.println(line);
+				System.out.println(sb);
 			}
 			if (this.me != null) {
 				System.out.println("Me: " + this.me.x + ", " + this.me.y);
