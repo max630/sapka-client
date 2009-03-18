@@ -1,5 +1,6 @@
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.StringTokenizer;
 
@@ -86,6 +87,11 @@ public class GameIO {
 
 	Point bomb;
 
+	// for printing
+	boolean map_changed;
+	int last_visual_x;
+	int last_visual_y;
+
 	static Pattern head;
 	static Pattern map_symbols;
 	static Pattern sapka_info_pat;
@@ -117,6 +123,8 @@ public class GameIO {
 				}
 				this.map.add(line);
 			}
+			this.map_height = this.map.size();
+			Collections.reverse(this.map);
 		} else if (matcher.group(8) != null) {
 			this.time = Integer.parseInt(matcher.group(9));
 			Matcher sapka_matcher = sapka_info_pat.matcher(matcher.group(10));
@@ -130,20 +138,39 @@ public class GameIO {
 					break;
 				}
 				int x = Integer.parseInt(sapka_matcher.group(3));
-				int y = Integer.parseInt(sapka_matcher.group(4));
+				int y = this.map_height * this.cell_size - Integer.parseInt(sapka_matcher.group(4)) - 1;
 				this.me = new Point(x, y);
+			}
+
+			if (this.me != null
+				&& (me.x / cell_size != last_visual_x
+					|| me.y / cell_size != last_visual_y))
+			{
+				print();
 			}
 		}
 	}
 
 	private synchronized void print() {
 		try {
-			for (String line: this.map) {
+			int visual_x = -1;
+			int visual_y = -1;
+			if (this.me != null) {
+				visual_x = this.me.x / this.cell_size;
+				visual_y = this.me.y / this.cell_size;
+			}
+			for (int i = this.map.size() - 1; i >= 0; --i) {
+				String line = this.map.get(i);
+				if (visual_y == i) { // if visual_y == -1 this never happen
+					line = line.substring(0, visual_x) + "@" + line.substring(visual_x + 1);
+				}
 				System.out.println(line);
 			}
 			if (this.me != null) {
 				System.out.println("Me: " + this.me.x + ", " + this.me.y);
 			}
+			this.last_visual_x = visual_x;
+			this.last_visual_y = visual_y;
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
