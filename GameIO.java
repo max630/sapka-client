@@ -4,6 +4,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import java.util.Map;
+import java.util.HashMap;
+
 import java.util.concurrent.BlockingQueue;
 
 import java.util.regex.Pattern;
@@ -16,6 +19,8 @@ public class GameIO {
 		this.client = client;
 
 		this.client.write("launch;");
+
+		this.walks_now = WalkSide.NONE;
 	}
 
 	public void execute() {
@@ -52,11 +57,24 @@ public class GameIO {
 					command += commands.nextToken();
 					System.out.println("Cmd: " + command);
 
-					if (command.equals("p;")) {
-						try {
-							this.print();
-						} catch (Exception e) {
-							e.printStackTrace(System.out);
+					Matcher cmd_m = my_cmd_pat.matcher(command);
+					if (cmd_m.find()) {
+						if (cmd_m.group(2) != null) {
+							try {
+								this.print();
+							} catch (Exception e) {
+								e.printStackTrace(System.out);
+							}
+						} else if (cmd_m.group(3) != null) {
+							int new_walk_limit = Integer.parseInt(cmd_m.group(5));
+							WalkSide new_walks_now = this.walk_side_by_string.get(cmd_m.group(4));
+							client.write(cmd_m.group(4) + ";");
+							synchronized (this) {
+								this.walk_limit = new_walk_limit;
+								this.walks_now = new_walks_now;
+							}
+						} else {
+							System.out.println("Unknown command: " + command);
 						}
 					} else {
 						client.write(command);
@@ -95,9 +113,10 @@ public class GameIO {
 	static Pattern head;
 	static Pattern map_symbols;
 	static Pattern sapka_info_pat;
+	static Pattern my_cmd_pat;
+	static Map<String, WalkSide> walk_side_by_string;
 	static Pattern changes_part;
 
-	
 	private synchronized void parseOutput(String output) {
 		Matcher matcher = head.matcher(output);
 
@@ -148,6 +167,7 @@ public class GameIO {
 			{
 				print();
 			}
+			treatWalk();
 		}
 	}
 
@@ -176,6 +196,42 @@ public class GameIO {
 		}
 	}
 
+	// for stop
+	enum WalkSide {
+		UP, DOWN, LEFT, RIGHT, NONE
+	}
+	WalkSide walks_now;
+	int walk_limit;
+
+	private void treatWalk() {
+		if (this.me == null) {
+			return;
+		}
+
+		boolean stop_needed = false;
+		switch (this.walks_now) {
+		case NONE:
+			return;
+		case UP:
+			stop_needed = this.me.y >= this.walk_limit;
+			break;
+		case DOWN:
+			stop_needed = this.me.y <= this.walk_limit;
+			break;
+		case LEFT:
+			stop_needed = this.me.x <= this.walk_limit;
+			break;
+		case RIGHT:
+			stop_needed = this.me.x >= this.walk_limit;
+			break;
+		}
+		if (stop_needed) {
+			System.out.println("stopped;");
+			this.walks_now = WalkSide.NONE;
+			this.client.write("s;");
+		}
+	}
+
 	static {
 		head =
 		 Pattern.compile(
@@ -194,5 +250,16 @@ public class GameIO {
 		sapka_info_pat =
 		 Pattern.compile("P([0-9]+) "
 		  + "(dead|([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)( i)?)(,|$)");
+
+		my_cmd_pat = Pattern.compile("^("
+			+ "(p)" // 2
+			+ "|((u|d|l|r)([0-9]+))" // 3,4,5
+			+ ");");
+
+		walk_side_by_string = new HashMap<String, WalkSide>();
+		walk_side_by_string.put("u", WalkSide.UP);
+		walk_side_by_string.put("d", WalkSide.DOWN);
+		walk_side_by_string.put("l", WalkSide.LEFT);
+		walk_side_by_string.put("r", WalkSide.RIGHT);
 	}
 }
