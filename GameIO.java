@@ -139,6 +139,7 @@ public class GameIO {
 				String line = map_matcher.group(1);
 				if (this.map_width == 0) {
 					this.map_width = line.length();
+					System.out.println("Width: " + this.map_width);
 				}
 				this.map.add(line);
 			}
@@ -201,9 +202,16 @@ public class GameIO {
 				visual_x = this.me.x;
 				visual_y = this.me.y;
 			}
+			StringBuffer nums = new StringBuffer(this.map_width * this.cell_size + 1);
+			nums.append(' ');
+			for (int j = 0; j < this.map_width * this.cell_size; ++j) {
+				nums.append(Integer.toString(j % 10).charAt(0));
+			}
+			System.out.println(nums);
 			for (int i = this.map.size() * this.cell_size - 1; i >= 0; --i) {
 				String line = this.map.get(i / this.cell_size);
-				StringBuffer sb = new StringBuffer(line.length() * this.cell_size);
+				StringBuffer sb = new StringBuffer(line.length() * this.cell_size + 1);
+				sb.append(' ');
 				for (int j = 0; j < line.length() * this.cell_size; ++j) {
 					if (visual_y == i && visual_x == j ) { // if visual_y == -1 this never happen
 						sb.append('@');
