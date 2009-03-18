@@ -42,8 +42,6 @@ public class GameIO {
 			while ((read_cnt = System.in.read(buf)) > 0) {
 				if (!listener.isAlive()) {
 					return;
-				} else {
-					System.out.println(listener.getState());
 				}
 				StringTokenizer commands
 				 = new StringTokenizer(new String(buf, 0, read_cnt), ";", true);
