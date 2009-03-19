@@ -6,6 +6,7 @@ import java.util.StringTokenizer;
 
 import java.util.Map;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 import java.util.concurrent.BlockingQueue;
 
@@ -21,6 +22,9 @@ public class GameIO {
 		this.client.write("launch;");
 
 		this.walks_now = WalkSide.NONE;
+
+		this.bot_state = BotState.READY;
+		this.bot_dir = WalkSide.NONE;
 	}
 
 	public void execute() {
@@ -102,6 +106,7 @@ public class GameIO {
 
 	boolean dead;
 	Point me;
+	int speed;
 
 	Point bomb;
 
@@ -191,6 +196,11 @@ public class GameIO {
 				this.print();
 			}
 			treatWalk();
+			String command = this.changeBotState();
+			if (!command.equals("")) {
+				System.out.println("Bot command: " + command);
+				this.client.write(command);
+			}
 		}
 	}
 
@@ -239,33 +249,301 @@ public class GameIO {
 	WalkSide walks_now;
 	int walk_limit;
 
+	private static WalkSide sideBack(WalkSide side) {
+		switch (side) {
+		case UP: return WalkSide.DOWN;
+		case DOWN: return WalkSide.UP;
+		case RIGHT: return WalkSide.LEFT;
+		case LEFT: return WalkSide.RIGHT;
+		default: return WalkSide.NONE;
+		}
+	}
+
+	// XXX: make functional list instead
+	private static class Sides extends LinkedList<WalkSide> {
+		public Sides(WalkSide s1, WalkSide s2) {
+			super();
+			add(s1);
+			add(s2);
+		}
+	}
+
+	private static Iterable<WalkSide> sideTurns(WalkSide side) {
+		switch (side) {
+		case UP:
+		case DOWN:
+			return new Sides(WalkSide.LEFT, WalkSide.RIGHT);
+		case LEFT:
+		case RIGHT:
+			return new Sides(WalkSide.DOWN, WalkSide.UP);
+		default:
+			return Collections.emptyList();
+		}
+	}
+
 	private void treatWalk() {
 		if (this.me == null) {
 			return;
 		}
 
-		boolean stop_needed = false;
-		switch (this.walks_now) {
-		case NONE:
-			return;
-		case UP:
-			stop_needed = this.me.y >= this.walk_limit;
-			break;
-		case DOWN:
-			stop_needed = this.me.y <= this.walk_limit;
-			break;
-		case LEFT:
-			stop_needed = this.me.x <= this.walk_limit;
-			break;
-		case RIGHT:
-			stop_needed = this.me.x >= this.walk_limit;
-			break;
-		}
-		if (stop_needed) {
+		if (this.isLimitReached(this.walks_now, this.walk_limit) && this.walks_now != WalkSide.NONE) {
 			System.out.println("stopped;");
 			this.walks_now = WalkSide.NONE;
 			this.client.write("s;");
 		}
+	}
+
+	enum BotState {
+		READY
+		, SEEK
+		, APPROACH
+		, WAIT_PLANT
+		, RUN
+		, RUN_SIDE
+		, WAIT
+		, WAIT_SIDE
+		, RETURN_SIDE
+		, RETURN
+		, GETTING
+		, GETTING_BACK
+	}
+	private BotState bot_state;
+	private WalkSide bot_dir;
+	private WalkSide bot_dir2; // for *_SIDE
+	private int bomb_x;
+	private int bomb_y;
+	private int lim; // how far to go
+
+	// changes state
+	// return command(s) to send to client
+	private synchronized String changeBotState() {
+		if (this.dead || this.me == null) {
+			this.bot_state = BotState.READY;
+		}
+
+		switch (this.bot_state) {
+		case READY:
+			if (!this.dead && this.me != null) {
+				return this.selectOnStart();
+			}
+			break;
+		case SEEK:
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				return this.selectOnStart(); // do not use already existing here
+			}
+			break;
+		case APPROACH:
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				this.bot_state = BotState.WAIT_PLANT;
+				return "sb;";
+			}
+			break;
+		case WAIT_PLANT:
+			if (this.checkBombPlantedHere()) {
+				this.bot_state = BotState.RUN;
+				this.bot_dir = sideBack(this.bot_dir);
+				this.lim = this.limNextCell(this.bot_dir);
+				this.bomb_x = this.me.x / this.cell_size;
+				this.bomb_y = this.me.y / this.cell_size;
+				return commandFromWalkSide(this.bot_dir);
+			} else {
+				// what here?
+				return "b;";
+			}
+		case RUN:
+			if (this.isBombBoomed()) {
+				return this.selectReturn();
+			}
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				for (WalkSide side: sideTurns(this.bot_dir)) {
+					if (this.isNextCellClean(side)) {
+						this.bot_state = BotState.RUN_SIDE;
+						this.bot_dir2 = side;
+						return this.selectWalkNextCell(side);
+						/*
+						this.lim = this.limNextCell(side);
+						return commandFromWalkSide(side);
+						*/
+					}
+				}
+				int next_cell = this.limNextCell(this.bot_dir);
+				if (this.isNextCellClean(this.bot_dir)) {
+					this.lim = next_cell;
+					return "";
+				} else if (this.isLimitReached(this.bot_dir, next_cell, -this.speed)) {
+					this.bot_state = BotState.WAIT;
+					return "s;";
+				}
+			}
+			break;
+		case RUN_SIDE:
+			if (this.isBombBoomed()) {
+				if (this.isLimitReached(this.bot_dir2, this.lim)) {
+					return this.selectReturnSide();
+				} else {
+					return this.selectReturn();
+				}
+			}
+			if (this.isLimitReached(this.bot_dir2, this.lim)) {
+				this.bot_state = BotState.WAIT_SIDE;
+				return "s;";
+			}
+			break;
+		case WAIT:
+			if (this.isBombBoomed()) {
+				return this.selectReturn();
+			}
+			break;
+		case WAIT_SIDE:
+			if (this.isBombBoomed()) {
+				return this.selectReturnSide();
+			}
+			break;
+		case RETURN_SIDE:
+			if (this.isLimitReached(this.bot_dir2, this.lim)) {
+				return this.selectReturn();
+			}
+			break;
+		case RETURN:
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				return this.selectCollect();
+			}
+			break;
+		case GETTING:
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				this.bot_state = BotState.GETTING_BACK;
+				this.bot_dir = sideBack(this.bot_dir);
+				return this.selectWalkNextCell(this.bot_dir);
+			}
+			break;
+		case GETTING_BACK:
+			if (this.isLimitReached(this.bot_dir, this.lim)) {
+				return this.selectCollect();
+			}
+			break;
+		}
+		return "";
+	}
+
+	// TODO: write!!!
+	private String selectOnStart() {
+		if (this.bot_state != BotState.READY) {
+			this.bot_state = BotState.READY;
+			return "s;";
+		} else {
+			return "";
+		}
+	}
+
+	// TODO: write
+	private String selectCollect() {
+		this.bot_state = BotState.READY;
+		return "s;";
+	}
+
+	private String selectReturn() {
+		this.bot_state = BotState.RETURN;
+		this.bot_dir = sideBack(this.bot_dir);
+		return this.selectWalkNextCell(this.bot_dir);
+	}
+
+	private String selectReturnSide() {
+		this.bot_state = BotState.RETURN_SIDE;
+		this.bot_dir2 = sideBack(this.bot_dir2);
+		return this.selectWalkNextCell(this.bot_dir2);
+	}
+
+	private String selectWalkNextCell(WalkSide side) {
+		this.lim = this.limNextCell(side);
+		return commandFromWalkSide(side);
+	}
+
+	// offset - how far beyound the lim 
+	private boolean isLimitReached(WalkSide side, int lim, int offset) {
+		if (this.me == null) {
+			return false;
+		}
+		switch (side) {
+		case UP:
+			return this.me.y >= lim + offset;
+		case DOWN:
+			return this.me.y <= lim - offset;
+		case LEFT:
+			return this.me.x <= lim - offset;
+		case RIGHT:
+			return this.me.x >= lim + offset;
+		default:
+			// ???
+			return true;
+		}
+	}
+
+	private boolean isLimitReached(WalkSide side, int lim) {
+		return isLimitReached(side, lim, 0);
+	}
+
+	private boolean isNextCellClean(WalkSide side) {
+		int x = this.me.x / this.cell_size;
+		int y = this.me.y / this.cell_size;
+		switch (side) {
+		case UP:
+			return (map.get(y + 1).charAt(x) == '.');
+		case DOWN:
+			return (map.get(y - 1).charAt(x) == '.');
+		case LEFT:
+			return (map.get(y).charAt(x - 1) == '.');
+		case RIGHT:
+			return (map.get(y).charAt(x + 1) == '.');
+		default:
+			// ???
+			return false;
+		}
+	}
+
+	private int limNextCell(WalkSide side) {
+		if (this.me == null) {
+			return -1;
+		}
+		int x = this.me.x / this.cell_size;
+		int y = this.me.y / this.cell_size;
+		switch (side) {
+		case UP:
+			return (this.me.y / this.cell_size + 1) * this.cell_size;
+		case DOWN:
+			return (this.me.y / this.cell_size) * this.cell_size - 1;
+		case LEFT:
+			return (this.me.x / this.cell_size) * this.cell_size - 1;
+		case RIGHT:
+			return (this.me.x / this.cell_size + 1) * this.cell_size;
+		default:
+			// ???
+			return -1;
+		}
+	}
+
+	private String commandFromWalkSide(WalkSide side) {
+		for (Map.Entry<String, WalkSide> e: this.walk_side_by_string.entrySet()) {
+			if (e.getValue() == side) {
+				return e.getKey();
+			}
+		}
+		return "";
+	}
+
+	private boolean checkBombPlantedHere() {
+		int x = this.me.x / this.cell_size;
+		int y = this.me.y / this.cell_size;
+
+		boolean res = (map.get(y).charAt(x) == '*');
+		if (res) {
+			this.bomb_x = x;
+			this.bomb_y = y;
+		}
+		return res;
+	}
+
+	private boolean isBombBoomed() {
+		return (map.get(this.bomb_y).charAt(bomb_x) != '*');
 	}
 
 	static {
