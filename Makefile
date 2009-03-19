@@ -6,7 +6,7 @@ CLASSES=$(SRCS:%.java=%.class)
 all: classes
 
 TMP_DIR=build
-contest.zip:
+contest.zip: $(SRCS)
 	rm -rf build/
 	mkdir -p $(TMP_DIR)/contest
 	echo "max630" >$(TMP_DIR)/contest/team
