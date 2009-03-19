@@ -456,6 +456,23 @@ public class GameIO {
 		this.bot_dir = sideBack(this.bot_dir);
 		// FIXME: not next!!! to to the original cell
 		// return this.selectWalkNextCell(this.bot_dir);
+		switch (this.bot_dir) {
+		case UP:
+			this.lim = this.bomb_y * this.cell_size;
+			break;
+		case DOWN:
+			this.lim = (this.bomb_y + 1) * this.cell_size - 1;
+			break;
+		case LEFT:
+			this.lim = (this.bomb_x + 1) * this.cell_size - 1;
+			break;
+		case RIGHT:
+			this.lim = this.bomb_x * this.cell_size;
+			break;
+		default: // ???
+			return this.selectOnStart();
+		}
+		return commandFromWalkSide(this.bot_dir);
 	}
 
 	private String selectReturnSide() {
