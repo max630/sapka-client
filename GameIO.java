@@ -1,6 +1,6 @@
 // Attribution-Noncommercial-Share Alike 3.0 Unported
 // (see more at http://creativecommons.org/licenses/by-nc-sa/3.0/)
-// (c) Maxim Kirillov <max630@gmail.com>
+// (c) 2009 Maxim Kirillov <max630@gmail.com>
 
 import java.util.ArrayList;
 import java.util.Collections;
