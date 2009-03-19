@@ -524,7 +524,7 @@ public class GameIO {
 	private String commandFromWalkSide(WalkSide side) {
 		for (Map.Entry<String, WalkSide> e: this.walk_side_by_string.entrySet()) {
 			if (e.getValue() == side) {
-				return e.getKey();
+				return e.getKey() + ";";
 			}
 		}
 		return "";
