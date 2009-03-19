@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedList;
 
+import java.util.Random;
+
 import java.util.concurrent.BlockingQueue;
 
 import java.util.regex.Pattern;
@@ -30,6 +32,7 @@ public class GameIO {
 
 		this.bot_state = BotState.READY;
 		this.bot_dir = WalkSide.NONE;
+		this.random = new Random();
 	}
 
 	public void execute() {
@@ -129,6 +132,9 @@ public class GameIO {
 	boolean map_changed;
 	int last_visual_x;
 	int last_visual_y;
+
+	// the smartest part of the bot
+	Random random;
 
 	static Pattern head;
 	static Pattern map_symbols;
@@ -442,6 +448,9 @@ public class GameIO {
 		List<WalkSide> checked = new LinkedList<WalkSide>();
 		if (this.bot_dir != WalkSide.NONE) {
 			checked.add(this.bot_dir);
+			checked.add(this.bot_dir);
+			checked.add(this.bot_dir);
+			checked.add(this.bot_dir); // this is to increase prob. to go in the same direction
 			checked.addAll(sideTurns(this.bot_dir));
 			checked.add(sideBack(this.bot_dir));
 		} else {
@@ -461,8 +470,7 @@ public class GameIO {
 			return "";
 		}
 		// just in case, where to go
-		// TODO: random here
-		this.bot_dir = checked.get(0);
+		this.bot_dir = checked.get(this.random.nextInt(checked.size() - 1));
 		int distance = 2;
 		while (checked.size() > 0) {
 			for (Iterator<WalkSide> s_ref = checked.iterator(); s_ref.hasNext();) {
