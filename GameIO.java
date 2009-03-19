@@ -212,8 +212,8 @@ public class GameIO {
 			}
 
 			if ((this.me != null
-				 && (this.me.x != this.last_visual_x
-				     || this.me.y  != this.last_visual_y))
+				 && (visual(this.me.x) != this.last_visual_x
+				     || visual(this.me.y)  != this.last_visual_y))
 				|| this.map_changed)
 			{
 				this.print();
@@ -227,29 +227,28 @@ public class GameIO {
 		}
 	}
 
+	private static int visual(int real) {
+		return real * 2;
+	}
+
 	private synchronized void print() {
 		try {
 			int visual_x = -1;
 			int visual_y = -1;
 			if (this.me != null) {
-				visual_x = this.me.x;
-				visual_y = this.me.y;
+				visual_x = visual(this.me.x) / this.cell_size;
+				visual_y = visual(this.me.y) / this.cell_size;
 			}
-			StringBuffer nums = new StringBuffer(this.map_width * this.cell_size + 1);
-			nums.append(' ');
-			for (int j = 0; j < this.map_width * this.cell_size; ++j) {
-				nums.append(Integer.toString(j % 10).charAt(0));
-			}
+			StringBuffer nums = new StringBuffer(visual(this.map_width));
 			System.out.println(nums);
-			for (int i = this.map.size() * this.cell_size - 1; i >= 0; --i) {
-				String line = this.map.get(i / this.cell_size);
-				StringBuffer sb = new StringBuffer(line.length() * this.cell_size + 1);
-				sb.append(' ');
-				for (int j = 0; j < line.length() * this.cell_size; ++j) {
+			for (int i = visual(this.map.size()) - 1; i >= 0; --i) {
+				String line = this.map.get(i / 2);
+				StringBuffer sb = new StringBuffer(visual(line.length()));
+				for (int j = 0; j < visual(line.length()); ++j) {
 					if (visual_y == i && visual_x == j ) { // if visual_y == -1 this never happen
 						sb.append('@');
 					} else {
-						sb.append(line.charAt(j / this.cell_size));
+						sb.append(line.charAt(j / 2));
 					}
 				}
 				System.out.println(sb);
