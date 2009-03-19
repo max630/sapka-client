@@ -1,3 +1,6 @@
+// Attribution-Noncommercial-Share Alike 3.0 Unported
+// (see more at http://creativecommons.org/licenses/by-nc-sa/3.0/)
+// (c) Maxim Kirillov <max630@gmail.com>
 
 public class Point implements Comparable<Point> {
 	final public int x;
