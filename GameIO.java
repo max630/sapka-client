@@ -1,6 +1,8 @@
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 
@@ -143,6 +145,8 @@ public class GameIO {
 		if (matcher.group(2) != null) {
 			this.pid = Integer.parseInt(matcher.group(3));
 		} else if (matcher.group(4) != null) {
+
+			this.bot_state = BotState.READY;
 			this.round = Integer.parseInt(matcher.group(5));
 			this.cell_size =  Integer.parseInt(matcher.group(6));
 			this.map = new ArrayList<String>();
@@ -242,7 +246,7 @@ public class GameIO {
 				System.out.println(sb);
 			}
 			if (this.me != null) {
-				System.out.println("Me: " + this.me.x + ", " + this.me.y);
+				System.out.println("Me: " + this.me.x + ", " + this.me.y + ", " + this.bot_state);
 			}
 			this.last_visual_x = visual_x;
 			this.last_visual_y = visual_y;
@@ -278,7 +282,7 @@ public class GameIO {
 		}
 	}
 
-	private static Iterable<WalkSide> sideTurns(WalkSide side) {
+	private static Collection<WalkSide> sideTurns(WalkSide side) {
 		switch (side) {
 		case UP:
 		case DOWN:
@@ -339,7 +343,7 @@ public class GameIO {
 			break;
 		case SEEK:
 			if (this.isLimitReached(this.bot_dir, this.lim)) {
-				return this.selectOnStart(); // do not use already existing here
+				return this.selectOnStart();
 			}
 			break;
 		case APPROACH:
@@ -370,10 +374,6 @@ public class GameIO {
 						this.bot_state = BotState.RUN_SIDE;
 						this.bot_dir2 = side;
 						return this.selectWalkNextCell(side);
-						/*
-						this.lim = this.limNextCell(side);
-						return commandFromWalkSide(side);
-						*/
 					}
 				}
 				int next_cell = this.limNextCell(this.bot_dir);
@@ -435,14 +435,50 @@ public class GameIO {
 		return "";
 	}
 
-	// TODO: write!!!
 	private String selectOnStart() {
-		if (this.bot_state != BotState.READY) {
-			this.bot_state = BotState.READY;
-			return "s;";
+		List<WalkSide> checked = new LinkedList<WalkSide>();
+		if (this.bot_dir != WalkSide.NONE) {
+			checked.add(this.bot_dir);
+			checked.addAll(sideTurns(this.bot_dir));
+			checked.add(sideBack(this.bot_dir));
 		} else {
+			Collections.addAll(checked, WalkSide.UP, WalkSide.DOWN, WalkSide.LEFT, WalkSide.RIGHT);
+		}
+		for (Iterator<WalkSide> s_ref = checked.iterator(); s_ref.hasNext();) {
+			WalkSide s = s_ref.next();
+			if (!this.isNextCellClean(s)) {
+				s_ref.remove();
+			}
+		}
+		if (checked.size() == 1) {
+			this.bot_state = BotState.SEEK;
+			this.bot_dir = checked.get(0);
+			return this.selectWalkNextCell(this.bot_dir);
+		} else if (checked.size() == 0) { // ???
 			return "";
 		}
+		// just in case, where to go
+		// TODO: random here
+		this.bot_dir = checked.get(0);
+		int distance = 2;
+		while (checked.size() > 0) {
+			for (Iterator<WalkSide> s_ref = checked.iterator(); s_ref.hasNext();) {
+				WalkSide s = s_ref.next();
+				char cell = this.getCellInSight(s, distance);
+				if (cell == 'w') {
+					this.bot_state = BotState.APPROACH;
+					this.bot_dir = s;
+					this.lim = this.limCellInSight(this.bot_dir, distance - 1);
+					return commandFromWalkSide(s);
+				}
+				if (cell != '.') {
+					s_ref.remove();
+				}
+			}
+			++distance;
+		}
+		this.bot_state = BotState.SEEK;
+		return this.selectWalkNextCell(this.bot_dir);
 	}
 
 	// TODO: write
@@ -511,24 +547,36 @@ public class GameIO {
 	}
 
 	private boolean isNextCellClean(WalkSide side) {
+		return this.getCellInSight(side, 1) == '.';
+	}
+
+	private char getCellInSight(WalkSide side, int distance) {
 		int x = this.me.x / this.cell_size;
 		int y = this.me.y / this.cell_size;
-		switch (side) {
-		case UP:
-			return (map.get(y + 1).charAt(x) == '.');
-		case DOWN:
-			return (map.get(y - 1).charAt(x) == '.');
-		case LEFT:
-			return (map.get(y).charAt(x - 1) == '.');
-		case RIGHT:
-			return (map.get(y).charAt(x + 1) == '.');
-		default:
-			// ???
-			return false;
+		try {
+			switch (side) {
+			case UP:
+				return map.get(y + distance).charAt(x);
+			case DOWN:
+				return map.get(y - distance).charAt(x);
+			case LEFT:
+				return map.get(y).charAt(x - distance);
+			case RIGHT:
+				return map.get(y).charAt(x + distance);
+			default:
+				// ???
+				return '\000';
+			}
+		} catch (IndexOutOfBoundsException e) {
+			return 'X';
 		}
 	}
 
 	private int limNextCell(WalkSide side) {
+		return this.limCellInSight(side, 1);
+	}
+
+	private int limCellInSight(WalkSide side, int distance) {
 		if (this.me == null) {
 			return -1;
 		}
@@ -536,13 +584,13 @@ public class GameIO {
 		int y = this.me.y / this.cell_size;
 		switch (side) {
 		case UP:
-			return (this.me.y / this.cell_size + 1) * this.cell_size;
+			return (this.me.y / this.cell_size + distance) * this.cell_size;
 		case DOWN:
-			return (this.me.y / this.cell_size) * this.cell_size - 1;
+			return (this.me.y / this.cell_size) * this.cell_size - distance;
 		case LEFT:
-			return (this.me.x / this.cell_size) * this.cell_size - 1;
+			return (this.me.x / this.cell_size) * this.cell_size - distance;
 		case RIGHT:
-			return (this.me.x / this.cell_size + 1) * this.cell_size;
+			return (this.me.x / this.cell_size + distance) * this.cell_size;
 		default:
 			// ???
 			return -1;
