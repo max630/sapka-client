@@ -77,6 +77,16 @@ public class GameIO {
 								this.walk_limit = new_walk_limit;
 								this.walks_now = new_walks_now;
 							}
+						} else if (cmd_m.group(6) != null) {
+							System.out.println("Match start");
+							int new_walk_limit = Integer.parseInt(cmd_m.group(8));
+							WalkSide new_walks_now = this.walk_side_by_string.get(cmd_m.group(7));
+							client.write(cmd_m.group(7) + ";");
+							synchronized (this) {
+								this.bot_state = BotState.APPROACH;
+								this.lim = new_walk_limit;
+								this.bot_dir = new_walks_now;
+							}
 						} else {
 							System.out.println("Unknown command: " + command);
 						}
@@ -571,6 +581,7 @@ public class GameIO {
 		my_cmd_pat = Pattern.compile("^("
 			+ "(p)" // 2
 			+ "|((u|d|l|r)([0-9]+))" // 3,4,5
+			+ "|(w(u|d|l|r)([0-9]+))" // 6,7,8
 			+ ");");
 
 		walk_side_by_string = new HashMap<String, WalkSide>();
