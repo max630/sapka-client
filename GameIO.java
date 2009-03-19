@@ -454,7 +454,8 @@ public class GameIO {
 	private String selectReturn() {
 		this.bot_state = BotState.RETURN;
 		this.bot_dir = sideBack(this.bot_dir);
-		return this.selectWalkNextCell(this.bot_dir);
+		// FIXME: not next!!! to to the original cell
+		// return this.selectWalkNextCell(this.bot_dir);
 	}
 
 	private String selectReturnSide() {
