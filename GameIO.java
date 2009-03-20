@@ -235,6 +235,13 @@ public class GameIO {
 										: ""));
 				this.print();
 			}
+		} else if (matcher.group(13) != null) {
+			
+			if (this.dead || this.me == null) {
+				this.bot_state = BotState.READY;
+				// just in case
+				this.client.write("s;");
+			}
 		}
 	}
 
@@ -681,9 +688,9 @@ public class GameIO {
 			+ "(PID([0-9]*)&[^;]*)" // 2,3
 			+ "|(START([0-9]*)&([0-9]+)\r\n([^;]+))" // 4,5,6,7
 			+ "|(T([0-9]*)&([^;&]*)&([^;&]*)(&[^;]*)?)" // 8,9,10,11,12
+			+ "|(REND (-?[0-9]*))" // 13,14
 			+ ");");
 		/*
-			+ "(REND (-?[0-9]*))" // 10,11
 			+ "(GEND (-?[0-9]*))" // 12,13
 		*/
 		
