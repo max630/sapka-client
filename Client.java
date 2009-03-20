@@ -22,7 +22,7 @@ public class Client {
 	Client(String hostname, int port)
 	{
 		try {
-			this.client_socket = new Socket(InetAddress.getLocalHost(), 20015);
+			this.client_socket = new Socket(InetAddress.getByName(hostname), port);
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
