@@ -53,7 +53,13 @@ public class GameIO {
 		});
 
 		listener.start();
+		try {
+			listener.join();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
+		/*
 		try {
 			byte buf[] = new byte[1024];
 			int read_cnt;
@@ -107,7 +113,7 @@ public class GameIO {
 			throw new RuntimeException(e);
 		} finally {
 			listener.interrupt();
-		}
+		}*/
 	}
 
 	// now state.
